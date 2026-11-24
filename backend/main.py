@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 import os
@@ -13,6 +13,8 @@ from openpyxl.utils import get_column_letter
 from backend.database import init_db, get_db_connection
 
 app = FastAPI(title="AVKG FACTORY MANAGER")
+
+MASTER_PASSWORD = "Sadh ji"
 
 @app.on_event("startup")
 def startup_event():
@@ -30,9 +32,31 @@ app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 @app.get("/")
 def read_root():
     return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+
 @app.get("/sw.js")
 def service_worker():
-    return FileResponse(os.path.join(FRONTEND_DIR, "sw.js"), media_type="application/javascript")
+    sw_path = os.path.join(FRONTEND_DIR, "sw.js")
+    if os.path.exists(sw_path):
+        return FileResponse(sw_path, media_type="application/javascript")
+    raise HTTPException(status_code=404)
+
+# --- LOGIN MODEL & API ---
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+@app.post("/api/login")
+def login_user(req: LoginRequest):
+    uname = req.username.strip()
+    if not uname:
+        raise HTTPException(status_code=400, detail="Username enter karna zaroori hai!")
+    if req.password != MASTER_PASSWORD:
+        raise HTTPException(status_code=401, detail="Galat Password! Sahi password enter karein.")
+    return {
+        "status": "success",
+        "username": uname,
+        "message": f"Welcome {uname}!"
+    }
 
 @app.get("/api/health")
 def health_check():
@@ -41,12 +65,9 @@ def health_check():
         local_ip = socket.gethostbyname(hostname)
     except:
         local_ip = "127.0.0.1"
-        
     return {
         "status": "success",
         "app": "AVKG FACTORY MANAGER",
-        "brand": "AVKG WORLD",
-        "message": "AVKG Factory Manager Backend 100% Active hai!",
         "server_ip": f"http://{local_ip}:8000"
     }
 
@@ -73,39 +94,47 @@ class StockEntryUpdate(BaseModel):
     quantity: int
     remarks: Optional[str] = ""
 
+def verify_user(x_username: Optional[str]):
+    if not x_username or not x_username.strip():
+        raise HTTPException(status_code=401, detail="Unauthorized! Pehle login karein.")
+    return x_username.strip().lower()
+
 @app.post("/api/parties")
-def create_party(party: PartyCreate):
+def create_party(party: PartyCreate, x_username: Optional[str] = Header(None)):
+    user = verify_user(x_username)
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("INSERT INTO parties (name) VALUES (?)", (party.name.strip(),))
+        cursor.execute("INSERT INTO parties (username, name) VALUES (?, ?)", (user, party.name.strip()))
         conn.commit()
         party_id = cursor.lastrowid
     except sqlite3.IntegrityError:
         conn.close()
-        raise HTTPException(status_code=400, detail="Yeh Party name pehle se registered hai!")
+        raise HTTPException(status_code=400, detail="Yeh Party name aapke account mein pehle se registered hai!")
     finally:
         conn.close()
     return {"status": "success", "message": "Party successfully register ho gayi!", "party_id": party_id, "name": party.name.strip()}
 
 @app.put("/api/parties/{party_id}")
-def update_party(party_id: int, party: PartyUpdate):
+def update_party(party_id: int, party: PartyUpdate, x_username: Optional[str] = Header(None)):
+    user = verify_user(x_username)
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("UPDATE parties SET name = ? WHERE id = ?", (party.name.strip(), party_id))
+        cursor.execute("UPDATE parties SET name = ? WHERE id = ? AND username = ?", (party.name.strip(), party_id, user))
         if cursor.rowcount == 0:
             raise HTTPException(status_code=404, detail="Party nahi mili!")
         conn.commit()
     except sqlite3.IntegrityError:
         conn.close()
-        raise HTTPException(status_code=400, detail="Yeh Party name pehle se kisi aur party ka hai!")
+        raise HTTPException(status_code=400, detail="Yeh Party name pehle se maujood hai!")
     finally:
         conn.close()
     return {"status": "success", "message": "Party name update ho gaya!"}
 
 @app.get("/api/parties")
-def get_parties():
+def get_parties(x_username: Optional[str] = Header(None)):
+    user = verify_user(x_username)
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -114,10 +143,11 @@ def get_parties():
                COALESCE(SUM(s.quantity), 0) as total_pieces,
                SUM(CASE WHEN s.is_exported = 0 THEN 1 ELSE 0 END) as unexported_count
         FROM parties p
-        LEFT JOIN stock_entries s ON p.id = s.party_id
+        LEFT JOIN stock_entries s ON p.id = s.party_id AND s.username = ?
+        WHERE p.username = ?
         GROUP BY p.id
         ORDER BY p.name ASC
-    """)
+    """, (user, user))
     rows = cursor.fetchall()
     conn.close()
     
@@ -136,16 +166,17 @@ def get_parties():
     return parties_list
 
 @app.get("/api/parties/{party_id}/dashboard")
-def get_party_dashboard(party_id: int):
+def get_party_dashboard(party_id: int, x_username: Optional[str] = Header(None)):
+    user = verify_user(x_username)
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM parties WHERE id = ?", (party_id,))
+    cursor.execute("SELECT * FROM parties WHERE id = ? AND username = ?", (party_id, user))
     party = cursor.fetchone()
     if not party:
         conn.close()
         raise HTTPException(status_code=404, detail="Party nahi mili!")
         
-    cursor.execute("SELECT * FROM stock_entries WHERE party_id = ? ORDER BY entry_date DESC, id DESC", (party_id,))
+    cursor.execute("SELECT * FROM stock_entries WHERE party_id = ? AND username = ? ORDER BY entry_date DESC, id DESC", (party_id, user))
     entries = [dict(row) for row in cursor.fetchall()]
     conn.close()
     
@@ -174,7 +205,7 @@ def get_party_dashboard(party_id: int):
         "entries": entries
     }
 
-def generate_excel_batch_file(party_name: str, batch_num: int, entries: list):
+def generate_excel_batch_file(username: str, party_name: str, batch_num: int, entries: list):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = f"Batch {batch_num:03d}" if batch_num != 999 else "Manual Export"
@@ -270,45 +301,45 @@ def generate_excel_batch_file(party_name: str, batch_num: int, entries: list):
         col_letter = get_column_letter(col[0].column)
         ws.column_dimensions[col_letter].width = max(max_len + 4, 12)
 
+    safe_user = "".join(c if c.isalnum() else "_" for c in username).upper()
     safe_party_name = "".join(c if c.isalnum() else "_" for c in party_name).upper()
-    filename = f"{safe_party_name}_MANUAL_EXPORT.xlsx" if batch_num == 999 else f"{safe_party_name}_BATCH_{batch_num:03d}.xlsx"
+    filename = f"{safe_user}_{safe_party_name}_MANUAL.xlsx" if batch_num == 999 else f"{safe_user}_{safe_party_name}_BATCH_{batch_num:03d}.xlsx"
     file_path = os.path.join(EXPORTS_DIR, filename)
     wb.save(file_path)
     return file_path, filename, total_qty
 
 @app.post("/api/stock-entries")
-def create_stock_entry(entry: StockEntryCreate):
+def create_stock_entry(entry: StockEntryCreate, x_username: Optional[str] = Header(None)):
+    user = verify_user(x_username)
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute("SELECT name FROM parties WHERE id = ?", (entry.party_id,))
+    cursor.execute("SELECT name FROM parties WHERE id = ? AND username = ?", (entry.party_id, user))
     party = cursor.fetchone()
     if not party:
         conn.close()
         raise HTTPException(status_code=404, detail="Party nahi mili!")
     party_name = party["name"]
 
-    cursor.execute("SELECT * FROM stock_entries WHERE party_id = ? AND is_exported = 0 ORDER BY id ASC", (entry.party_id,))
+    cursor.execute("SELECT * FROM stock_entries WHERE party_id = ? AND username = ? AND is_exported = 0 ORDER BY id ASC", (entry.party_id, user))
     unexported_rows = cursor.fetchall()
-    unexported_before = len(unexported_rows)
-    
-    if unexported_before >= 10:
+    if len(unexported_rows) >= 10:
         conn.close()
-        raise HTTPException(status_code=400, detail="Is party ke 10 entries poore ho chuke hain! Pehle Excel download karein.")
+        raise HTTPException(status_code=400, detail="Is party ke 10 entries poore ho chuke hain!")
 
-    cursor.execute("SELECT COALESCE(MAX(batch_number), 0) as max_b FROM excel_batches WHERE party_id = ?", (entry.party_id,))
+    cursor.execute("SELECT COALESCE(MAX(batch_number), 0) as max_b FROM excel_batches WHERE party_id = ? AND username = ?", (entry.party_id, user))
     current_batch_num = (cursor.fetchone()["max_b"] or 0) + 1
 
     cursor.execute("""
-        INSERT INTO stock_entries (party_id, entry_date, lot_number, size, colour, quantity, remarks, batch_number, is_exported)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+        INSERT INTO stock_entries (username, party_id, entry_date, lot_number, size, colour, quantity, remarks, batch_number, is_exported)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
     """, (
-        entry.party_id, entry.entry_date, entry.lot_number.strip(), entry.size,
+        user, entry.party_id, entry.entry_date, entry.lot_number.strip(), entry.size,
         entry.colour.strip(), entry.quantity, entry.remarks.strip() if entry.remarks else "", current_batch_num
     ))
     conn.commit()
     
-    cursor.execute("SELECT * FROM stock_entries WHERE party_id = ? AND is_exported = 0 ORDER BY id ASC", (entry.party_id,))
+    cursor.execute("SELECT * FROM stock_entries WHERE party_id = ? AND username = ? AND is_exported = 0 ORDER BY id ASC", (entry.party_id, user))
     updated_unexported = cursor.fetchall()
     unexported_now = len(updated_unexported)
     
@@ -316,12 +347,12 @@ def create_stock_entry(entry: StockEntryCreate):
     batch_id = None
 
     if unexported_now == 10:
-        file_path, filename, total_pieces = generate_excel_batch_file(party_name, current_batch_num, [dict(r) for r in updated_unexported])
+        file_path, filename, total_pieces = generate_excel_batch_file(user, party_name, current_batch_num, [dict(r) for r in updated_unexported])
         
         cursor.execute("""
-            INSERT INTO excel_batches (party_id, batch_number, file_path, total_entries, total_pieces)
-            VALUES (?, ?, ?, 10, ?)
-        """, (entry.party_id, current_batch_num, file_path, total_pieces))
+            INSERT INTO excel_batches (username, party_id, batch_number, file_path, total_entries, total_pieces)
+            VALUES (?, ?, ?, ?, 10, ?)
+        """, (user, entry.party_id, current_batch_num, file_path, total_pieces))
         
         batch_id = cursor.lastrowid
 
@@ -343,10 +374,11 @@ def create_stock_entry(entry: StockEntryCreate):
     }
 
 @app.put("/api/stock-entries/{entry_id}")
-def update_stock_entry(entry_id: int, entry: StockEntryUpdate):
+def update_stock_entry(entry_id: int, entry: StockEntryUpdate, x_username: Optional[str] = Header(None)):
+    user = verify_user(x_username)
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT is_exported FROM stock_entries WHERE id = ?", (entry_id,))
+    cursor.execute("SELECT is_exported FROM stock_entries WHERE id = ? AND username = ?", (entry_id, user))
     row = cursor.fetchone()
     if not row:
         conn.close()
@@ -358,17 +390,18 @@ def update_stock_entry(entry_id: int, entry: StockEntryUpdate):
     cursor.execute("""
         UPDATE stock_entries 
         SET entry_date = ?, lot_number = ?, size = ?, colour = ?, quantity = ?, remarks = ?
-        WHERE id = ?
-    """, (entry.entry_date, entry.lot_number.strip(), entry.size, entry.colour.strip(), entry.quantity, entry.remarks.strip() if entry.remarks else "", entry_id))
+        WHERE id = ? AND username = ?
+    """, (entry.entry_date, entry.lot_number.strip(), entry.size, entry.colour.strip(), entry.quantity, entry.remarks.strip() if entry.remarks else "", entry_id, user))
     conn.commit()
     conn.close()
     return {"status": "success", "message": "Entry successfully update ho gayi!"}
 
 @app.delete("/api/stock-entries/{entry_id}")
-def delete_stock_entry(entry_id: int):
+def delete_stock_entry(entry_id: int, x_username: Optional[str] = Header(None)):
+    user = verify_user(x_username)
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT is_exported FROM stock_entries WHERE id = ?", (entry_id,))
+    cursor.execute("SELECT is_exported FROM stock_entries WHERE id = ? AND username = ?", (entry_id, user))
     row = cursor.fetchone()
     if not row:
         conn.close()
@@ -377,13 +410,14 @@ def delete_stock_entry(entry_id: int):
         conn.close()
         raise HTTPException(status_code=400, detail="Export ho chuke batch ki entry delete nahi ki ja sakti!")
         
-    cursor.execute("DELETE FROM stock_entries WHERE id = ?", (entry_id,))
+    cursor.execute("DELETE FROM stock_entries WHERE id = ? AND username = ?", (entry_id, user))
     conn.commit()
     conn.close()
-    return {"status": "success", "message": "Entry delete ho gayi aur batch counter update ho gaya!"}
+    return {"status": "success", "message": "Entry delete ho gayi!"}
 
 @app.get("/api/excel-batches")
-def get_excel_batches():
+def get_excel_batches(x_username: Optional[str] = Header(None)):
+    user = verify_user(x_username)
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -391,14 +425,14 @@ def get_excel_batches():
                p.name as party_name
         FROM excel_batches eb
         JOIN parties p ON eb.party_id = p.id
+        WHERE eb.username = ?
         ORDER BY eb.created_at DESC
-    """)
+    """, (user,))
     rows = cursor.fetchall()
     conn.close()
     
     batches = []
     for r in rows:
-        filename = os.path.basename(r["file_path"])
         batches.append({
             "id": r["id"],
             "party_name": r["party_name"],
@@ -406,7 +440,7 @@ def get_excel_batches():
             "total_entries": r["total_entries"],
             "total_pieces": r["total_pieces"],
             "created_at": r["created_at"],
-            "filename": filename
+            "filename": os.path.basename(r["file_path"])
         })
     return batches
 
@@ -421,29 +455,29 @@ def download_excel_file(batch_id: int):
     if not row or not os.path.exists(row["file_path"]):
         raise HTTPException(status_code=404, detail="Excel file nahi mili!")
         
-    file_path = row["file_path"]
-    filename = os.path.basename(file_path)
-    return FileResponse(file_path, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename=filename)
+    return FileResponse(row["file_path"], media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename=os.path.basename(row["file_path"]))
 
 @app.get("/api/parties/{party_id}/manual-export")
-def manual_export_party(party_id: int):
+def manual_export_party(party_id: int, username: str):
+    user = verify_user(username)
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT name FROM parties WHERE id = ?", (party_id,))
+    cursor.execute("SELECT name FROM parties WHERE id = ? AND username = ?", (party_id, user))
     party = cursor.fetchone()
     if not party:
         conn.close()
         raise HTTPException(status_code=404, detail="Party nahi mili!")
     
-    cursor.execute("SELECT * FROM stock_entries WHERE party_id = ? ORDER BY entry_date DESC", (party_id,))
+    cursor.execute("SELECT * FROM stock_entries WHERE party_id = ? AND username = ? ORDER BY entry_date DESC", (party_id, user))
     entries = [dict(row) for row in cursor.fetchall()]
     conn.close()
 
     if not entries:
         raise HTTPException(status_code=400, detail="Is party ki koi stock entry nahi hai!")
 
-    file_path, filename, total_pieces = generate_excel_batch_file(party["name"], 999, entries)
+    file_path, filename, _ = generate_excel_batch_file(user, party["name"], 999, entries)
     return FileResponse(file_path, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename=filename)
+
 @app.get("/api/backup-database")
 def backup_database():
     if not os.path.exists(DB_PATH):

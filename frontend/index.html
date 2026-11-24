@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="manifest" href="/static/manifest.json">
-<meta name="theme-color" content="#0284c7">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AVKG FACTORY MANAGER</title>
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#0284c7">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         :root {
@@ -25,7 +25,17 @@
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { background-color: var(--bg-dark); color: var(--text-main); min-height: 100vh; }
-        .app-container { display: flex; min-height: 100vh; }
+
+        /* Login Screen */
+        .login-wrapper { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 1.5rem; background: radial-gradient(circle at top, #1e293b, #0f172a); }
+        .login-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 2.2rem; width: 100%; max-width: 420px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
+        .login-header { text-align: center; margin-bottom: 1.8rem; }
+        .login-header i { font-size: 2.8rem; color: var(--accent); margin-bottom: 0.7rem; }
+        .login-header h2 { font-size: 1.4rem; letter-spacing: 0.5px; }
+        .login-header p { color: var(--text-muted); font-size: 0.88rem; margin-top: 4px; }
+
+        .app-container { display: none; min-height: 100vh; }
+        .app-container.logged-in { display: flex; }
 
         /* Sidebar */
         .sidebar { width: 260px; background-color: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; transition: transform 0.3s ease; z-index: 1000; }
@@ -44,11 +54,11 @@
 
         /* Main Content */
         .main-content { flex: 1; display: flex; flex-direction: column; overflow-x: hidden; }
-        .topbar { background-color: var(--bg-card); padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+        .topbar { background-color: var(--bg-card); padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
         .menu-toggle { display: none; background: none; border: none; color: var(--text-main); font-size: 1.4rem; cursor: pointer; }
-        .topbar h1 { font-size: 1.3rem; }
-        .server-badge { display: flex; align-items: center; gap: 8px; background: rgba(16, 185, 129, 0.15); color: var(--success); padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
-        .dot { width: 8px; height: 8px; background-color: var(--success); border-radius: 50%; }
+        .topbar h1 { font-size: 1.25rem; }
+        .user-controls { display: flex; align-items: center; gap: 10px; }
+        .user-badge { display: flex; align-items: center; gap: 6px; background: rgba(56, 189, 248, 0.15); color: var(--accent); padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
 
         .content-body { padding: 1.5rem; max-width: 1250px; width: 100%; margin: 0 auto; }
         .page-section { display: none; }
@@ -74,10 +84,10 @@
         .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
         .form-group { margin-bottom: 1rem; }
         .form-group label { display: block; margin-bottom: 0.4rem; font-size: 0.85rem; color: var(--text-muted); }
-        .form-control { width: 100%; padding: 0.7rem 0.9rem; background-color: var(--bg-dark); border: 1px solid var(--border); border-radius: 8px; color: var(--text-main); font-size: 0.95rem; outline: none; }
+        .form-control { width: 100%; padding: 0.75rem 0.9rem; background-color: var(--bg-dark); border: 1px solid var(--border); border-radius: 8px; color: var(--text-main); font-size: 0.95rem; outline: none; }
         .form-control:focus { border-color: var(--accent); }
 
-        .btn { padding: 0.7rem 1.2rem; border: none; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: 0.2s; text-decoration: none; }
+        .btn { padding: 0.7rem 1.2rem; border: none; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: 0.2s; text-decoration: none; }
         .btn:disabled { opacity: 0.6; cursor: not-allowed; }
         .btn-primary { background-color: var(--primary); color: white; }
         .btn-primary:hover:not(:disabled) { background-color: var(--primary-hover); }
@@ -89,15 +99,12 @@
         .btn-danger:hover { background-color: var(--danger); color: white; }
         .btn-sm { padding: 0.4rem 0.75rem; font-size: 0.82rem; }
 
-        /* Progress Bar */
         .progress-wrap { background: var(--bg-dark); border-radius: 20px; height: 12px; width: 100%; overflow: hidden; border: 1px solid var(--border); margin-top: 8px; }
         .progress-fill { background: linear-gradient(90deg, var(--primary), var(--accent)); height: 100%; transition: width 0.3s ease; }
 
-        /* Colour Pills */
         .colour-pills { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.5rem; }
         .colour-pill { background: var(--bg-dark); border: 1px solid var(--border); padding: 6px 12px; border-radius: 8px; font-size: 0.85rem; }
 
-        /* Tables */
         .table-responsive { width: 100%; overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.92rem; }
         th, td { padding: 0.8rem 0.9rem; border-bottom: 1px solid var(--border); }
@@ -109,7 +116,6 @@
         .badge-exported { background: rgba(16, 185, 129, 0.15); color: var(--success); }
         .badge-pending { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
 
-        /* Modal */
         .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 2000; align-items: center; justify-content: center; padding: 1rem; }
         .modal-backdrop.active { display: flex; }
         .modal-box { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; width: 100%; max-width: 500px; }
@@ -124,7 +130,32 @@
     </style>
 </head>
 <body>
-    <div class="app-container">
+    <!-- LOGIN SCREEN -->
+    <div class="login-wrapper" id="loginScreen">
+        <div class="login-card">
+            <div class="login-header">
+                <i class="fa-solid fa-industry"></i>
+                <h2>AVKG FACTORY MANAGER</h2>
+                <p>Apna Username aur Factory Password enter karein</p>
+            </div>
+            <form onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label>Username (Koi bhi naam likhein)</label>
+                    <input type="text" id="loginUsername" class="form-control" placeholder="e.g. Ayush / Manager" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="loginPassword" class="form-control" placeholder="Enter password" required>
+                </div>
+                <button type="submit" id="loginBtn" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;">
+                    <i class="fa-solid fa-right-to-bracket"></i> Login to Dashboard
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAIN APP CONTAINER -->
+    <div class="app-container" id="mainApp">
         <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
 
         <!-- Sidebar -->
@@ -141,41 +172,30 @@
             </div>
 
             <nav class="nav-menu">
-                <button class="nav-item active" onclick="showPage('dashboard', this)">
-                    <i class="fa-solid fa-chart-pie"></i> Dashboard
-                </button>
-                <button class="nav-item" onclick="showPage('new-entry', this)">
-                    <i class="fa-solid fa-plus-circle"></i> New Stock Entry
-                </button>
-                <button class="nav-item" onclick="showPage('all-parties', this)">
-                    <i class="fa-solid fa-users"></i> All Parties
-                </button>
-                <button class="nav-item" onclick="showPage('add-party', this)">
-                    <i class="fa-solid fa-user-plus"></i> Add New Party
-                </button>
-                <button class="nav-item" onclick="showPage('party-history', this)">
-                    <i class="fa-solid fa-clock-rotate-left"></i> Party History
-                </button>
-                <button class="nav-item" onclick="showPage('excel-downloads', this)">
-                    <i class="fa-solid fa-file-excel"></i> Excel Downloads
-                </button>
-                <button class="nav-item" onclick="showPage('reports', this)">
-                    <i class="fa-solid fa-chart-column"></i> Reports & Manual Export
-                </button>
-                <button class="nav-item" onclick="showPage('settings', this)">
-                    <i class="fa-solid fa-gear"></i> Settings & Backup
-                </button>
+                <button class="nav-item active" onclick="showPage('dashboard', this)"><i class="fa-solid fa-chart-pie"></i> Dashboard</button>
+                <button class="nav-item" onclick="showPage('new-entry', this)"><i class="fa-solid fa-plus-circle"></i> New Stock Entry</button>
+                <button class="nav-item" onclick="showPage('all-parties', this)"><i class="fa-solid fa-users"></i> All Parties</button>
+                <button class="nav-item" onclick="showPage('add-party', this)"><i class="fa-solid fa-user-plus"></i> Add New Party</button>
+                <button class="nav-item" onclick="showPage('party-history', this)"><i class="fa-solid fa-clock-rotate-left"></i> Party History</button>
+                <button class="nav-item" onclick="showPage('excel-downloads', this)"><i class="fa-solid fa-file-excel"></i> Excel Downloads</button>
+                <button class="nav-item" onclick="showPage('reports', this)"><i class="fa-solid fa-chart-column"></i> Reports & Manual Export</button>
+                <button class="nav-item" onclick="showPage('settings', this)"><i class="fa-solid fa-gear"></i> Settings & Backup</button>
             </nav>
 
             <div class="sidebar-footer">Made by <strong>AVKG WORLD</strong></div>
         </aside>
 
-        <!-- Main Content -->
+        <!-- Main Content Area -->
         <main class="main-content">
             <header class="topbar">
-                <button class="menu-toggle" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
-                <h1 id="pageTitle">Dashboard</h1>
-                <div class="server-badge"><span class="dot"></span> Live System</div>
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <button class="menu-toggle" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
+                    <h1 id="pageTitle">Dashboard</h1>
+                </div>
+                <div class="user-controls">
+                    <div class="user-badge"><i class="fa-solid fa-user"></i> <span id="activeUserDisplay">User</span></div>
+                    <button class="btn btn-danger btn-sm" onclick="handleLogout()"><i class="fa-solid fa-power-off"></i> Logout</button>
+                </div>
             </header>
 
             <div class="content-body">
@@ -184,7 +204,7 @@
                     <div class="stats-grid">
                         <div class="stat-card">
                             <div class="stat-icon blue"><i class="fa-solid fa-users"></i></div>
-                            <div><p>Total Parties</p><h3 id="stat-parties">0</h3></div>
+                            <div><p>My Parties</p><h3 id="stat-parties">0</h3></div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-icon green"><i class="fa-solid fa-boxes-stacked"></i></div>
@@ -278,7 +298,7 @@
                 <section id="page-all-parties" class="page-section">
                     <div class="card">
                         <div class="card-header">
-                            <h3>All Registered Parties</h3>
+                            <h3>My Registered Parties</h3>
                             <input type="text" id="partySearchInput" class="form-control" style="max-width: 280px;" placeholder="Search party name..." oninput="filterPartiesTable()">
                         </div>
                         <div class="table-responsive">
@@ -305,7 +325,7 @@
                 <section id="page-add-party" class="page-section">
                     <div class="card" style="max-width: 600px;">
                         <h3>Register New Party</h3>
-                        <p class="muted" style="margin-bottom: 1.5rem;">Nayi party ka naam enter karein jo database mein permanently save hogi.</p>
+                        <p class="muted" style="margin-bottom: 1.5rem;">Nayi party ka naam enter karein jo aapke account mein permanently save hogi.</p>
                         <form id="addPartyForm" onsubmit="handleRegisterParty(event)">
                             <div class="form-group">
                                 <label>Party Name</label>
@@ -423,7 +443,7 @@
                 <section id="page-reports" class="page-section">
                     <div class="card" style="max-width: 650px;">
                         <h3>Manual Party Excel Export</h3>
-                        <p class="muted" style="margin-bottom: 1.5rem;">Kisi bhi party ke saare entries ka complete Excel report kisi bhi waqt download karein, chahe 10 entries poori hui hon ya nahi.</p>
+                        <p class="muted" style="margin-bottom: 1.5rem;">Kisi bhi party ke saare entries ka complete Excel report kisi bhi waqt download karein.</p>
                         
                         <div class="form-group">
                             <label>Select Party for Manual Export</label>
@@ -441,7 +461,7 @@
                 <section id="page-settings" class="page-section">
                     <div class="card" style="max-width: 650px; margin-bottom: 1.5rem;">
                         <h3>Database Backup & Recovery</h3>
-                        <p class="muted" style="margin-bottom: 1.5rem;">Apne poore factory database (`avkg_factory.db`) ka secure backup download karein.</p>
+                        <p class="muted" style="margin-bottom: 1.5rem;">Apne factory database ka secure backup download karein.</p>
                         <a href="/api/backup-database" class="btn btn-primary" target="_blank">
                             <i class="fa-solid fa-download"></i> Download Database Backup (.db)
                         </a>
@@ -482,9 +502,61 @@
     </div>
 
     <script>
+        let currentUser = localStorage.getItem('avkg_user') || null;
         let allPartiesCache = [];
         let currentPartyEntries = [];
         let currentSelectedPartyId = null;
+
+        function authHeaders(extra = {}) {
+            return { 'X-Username': currentUser, ...extra };
+        }
+
+        async function handleLogin(event) {
+            event.preventDefault();
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const btn = document.getElementById('loginBtn');
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    currentUser = data.username;
+                    localStorage.setItem('avkg_user', currentUser);
+                    checkAuth();
+                } else {
+                    alert(data.detail || "Login failed!");
+                }
+            } catch (err) {
+                alert("Server connection error!");
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('avkg_user');
+            currentUser = null;
+            document.getElementById('loginPassword').value = '';
+            checkAuth();
+        }
+
+        function checkAuth() {
+            if (currentUser) {
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('mainApp').classList.add('logged-in');
+                document.getElementById('activeUserDisplay').innerText = currentUser;
+                loadDashboardStats();
+            } else {
+                document.getElementById('loginScreen').style.display = 'flex';
+                document.getElementById('mainApp').classList.remove('logged-in');
+            }
+        }
 
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('open');
@@ -539,9 +611,9 @@
 
         async function loadDashboardStats() {
             try {
-                const res = await fetch('/api/parties');
+                const res = await fetch('/api/parties', { headers: authHeaders() });
                 const parties = await res.json();
-                const batchesRes = await fetch('/api/excel-batches');
+                const batchesRes = await fetch('/api/excel-batches', { headers: authHeaders() });
                 const batches = await batchesRes.json();
 
                 document.getElementById('stat-parties').innerText = parties.length;
@@ -561,7 +633,7 @@
             try {
                 const response = await fetch('/api/parties', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: authHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify({ name: partyName })
                 });
                 const result = await response.json();
@@ -576,7 +648,7 @@
 
         async function loadPartiesDropdown(selectId, preselectId = null) {
             try {
-                const res = await fetch('/api/parties');
+                const res = await fetch('/api/parties', { headers: authHeaders() });
                 const parties = await res.json();
                 const select = document.getElementById(selectId);
                 select.innerHTML = '<option value="">-- Choose Party --</option>';
@@ -603,7 +675,7 @@
             try {
                 const response = await fetch('/api/stock-entries', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: authHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify({ party_id: parseInt(partyId), entry_date: entryDate, lot_number: lotNumber, size: size, colour: colour, quantity: quantity, remarks: remarks })
                 });
                 const result = await response.json();
@@ -627,7 +699,7 @@
 
         async function loadParties() {
             try {
-                const res = await fetch('/api/parties');
+                const res = await fetch('/api/parties', { headers: authHeaders() });
                 allPartiesCache = await res.json();
                 renderPartiesTable(allPartiesCache);
             } catch (err) { console.error(err); }
@@ -669,7 +741,7 @@
             try {
                 const res = await fetch(`/api/parties/${partyId}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: authHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify({ name: newName.trim() })
                 });
                 const data = await res.json();
@@ -688,7 +760,7 @@
             if (!partyId) { container.style.display = 'none'; return; }
             currentSelectedPartyId = partyId;
             try {
-                const res = await fetch(`/api/parties/${partyId}/dashboard`);
+                const res = await fetch(`/api/parties/${partyId}/dashboard`, { headers: authHeaders() });
                 const data = await res.json();
                 if (!res.ok) return alert(data.detail);
 
@@ -768,7 +840,7 @@
 
         async function loadExcelBatches() {
             try {
-                const res = await fetch('/api/excel-batches');
+                const res = await fetch('/api/excel-batches', { headers: authHeaders() });
                 const batches = await res.json();
                 const tbody = document.getElementById('excelBatchesTableBody');
                 tbody.innerHTML = '';
@@ -798,7 +870,7 @@
         function triggerManualExport() {
             const partyId = document.getElementById('manualExportPartySelect').value;
             if (!partyId) { alert("Pehle koi party select karein!"); return; }
-            window.open(`/api/parties/${partyId}/manual-export`, '_blank');
+            window.open(`/api/parties/${partyId}/manual-export?username=${encodeURIComponent(currentUser)}`, '_blank');
         }
 
         async function loadServerIpInfo() {
@@ -836,7 +908,7 @@
             try {
                 const res = await fetch(`/api/stock-entries/${id}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: authHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify(payload)
                 });
                 const data = await res.json();
@@ -848,18 +920,20 @@
         async function deleteEntry(id) {
             if (!confirm("Kya aap sach mein is entry ko delete karna chahte hain?")) return;
             try {
-                const res = await fetch(`/api/stock-entries/${id}`, { method: 'DELETE' });
+                const res = await fetch(`/api/stock-entries/${id}`, { method: 'DELETE', headers: authHeaders() });
                 const data = await res.json();
                 if (res.ok) { alert(data.message); loadPartyDashboard(currentSelectedPartyId); }
                 else { alert(data.detail); }
             } catch (err) { alert("Delete karne mein error aaya!"); }
         }
 
-        window.onload = function() { loadDashboardStats(); }
-    
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js');
-    }
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
+        }
+
+        window.onload = function() {
+            checkAuth();
+        }
     </script>
 </body>
 </html>
