@@ -1,15 +1,20 @@
 {
-  "name": "AVKG Factory Manager",
+  "name": "AVKG FACTORY MANAGER",
   "short_name": "AVKG Manager",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "theme_color": "#0284c7",
   "icons": [
     {
-      "src": "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/svgs/solid/industry.svg",
+      "src": "https://cdn-icons-png.flaticon.com/512/2942/2942813.png",
       "sizes": "192x192",
-      "type": "image/svg+xml"
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2942/2942813.png",
+      "sizes": "512x512",
+      "type": "image/png"
     }
   ]
 }
