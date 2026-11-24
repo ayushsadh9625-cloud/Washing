@@ -30,6 +30,9 @@ app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 @app.get("/")
 def read_root():
     return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+@app.get("/sw.js")
+def service_worker():
+    return FileResponse(os.path.join(FRONTEND_DIR, "sw.js"), media_type="application/javascript")
 
 @app.get("/api/health")
 def health_check():
@@ -441,7 +444,6 @@ def manual_export_party(party_id: int):
 
     file_path, filename, total_pieces = generate_excel_batch_file(party["name"], 999, entries)
     return FileResponse(file_path, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename=filename)
-
 @app.get("/api/backup-database")
 def backup_database():
     if not os.path.exists(DB_PATH):
