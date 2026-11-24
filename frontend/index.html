@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AVKG FACTORY MANAGER</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --bg-sidebar: #111827;
+            --border: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --primary: #0284c7;
+            --primary-hover: #0369a1;
+            --accent: #38bdf8;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg-dark); color: var(--text-main); min-height: 100vh; }
+        .app-container { display: flex; min-height: 100vh; }
+
+        /* Sidebar */
+        .sidebar { width: 260px; background-color: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; transition: transform 0.3s ease; z-index: 1000; }
+        .sidebar-header { padding: 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .logo-box { display: flex; align-items: center; gap: 12px; }
+        .logo-box i { font-size: 1.8rem; color: var(--accent); }
+        .logo-box h2 { font-size: 1.1rem; letter-spacing: 0.5px; }
+        .logo-box span { font-size: 0.75rem; color: var(--accent); font-weight: bold; }
+        .close-btn { display: none; background: none; border: none; color: var(--text-muted); font-size: 1.3rem; cursor: pointer; }
+        
+        .nav-menu { flex: 1; padding: 1rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 0.85rem 1rem; background: transparent; border: none; color: var(--text-muted); font-size: 0.95rem; border-radius: 8px; cursor: pointer; text-align: left; transition: all 0.2s; width: 100%; }
+        .nav-item:hover { background-color: rgba(56, 189, 248, 0.1); color: var(--text-main); }
+        .nav-item.active { background-color: var(--primary); color: white; font-weight: 600; }
+        .sidebar-footer { padding: 1rem; text-align: center; font-size: 0.8rem; color: var(--text-muted); border-top: 1px solid var(--border); }
+
+        /* Main Content */
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow-x: hidden; }
+        .topbar { background-color: var(--bg-card); padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+        .menu-toggle { display: none; background: none; border: none; color: var(--text-main); font-size: 1.4rem; cursor: pointer; }
+        .topbar h1 { font-size: 1.3rem; }
+        .server-badge { display: flex; align-items: center; gap: 8px; background: rgba(16, 185, 129, 0.15); color: var(--success); padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
+        .dot { width: 8px; height: 8px; background-color: var(--success); border-radius: 50%; }
+
+        .content-body { padding: 1.5rem; max-width: 1250px; width: 100%; margin: 0 auto; }
+        .page-section { display: none; }
+        .page-section.active { display: block; animation: fadeIn 0.25s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Stats & Cards */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+        .stat-card { background-color: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; display: flex; align-items: center; gap: 1rem; }
+        .stat-icon { width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; }
+        .stat-icon.blue { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+        .stat-icon.green { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+        .stat-icon.purple { background: rgba(168, 85, 247, 0.15); color: #a855f7; }
+        .stat-icon.orange { background: rgba(249, 115, 22, 0.15); color: #f97316; }
+        .stat-card p { color: var(--text-muted); font-size: 0.85rem; }
+        .stat-card h3 { font-size: 1.5rem; margin-top: 4px; }
+
+        .card { background-color: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem; }
+        .muted { color: var(--text-muted); font-size: 0.95rem; }
+
+        /* Forms & Inputs */
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.4rem; font-size: 0.85rem; color: var(--text-muted); }
+        .form-control { width: 100%; padding: 0.7rem 0.9rem; background-color: var(--bg-dark); border: 1px solid var(--border); border-radius: 8px; color: var(--text-main); font-size: 0.95rem; outline: none; }
+        .form-control:focus { border-color: var(--accent); }
+
+        .btn { padding: 0.7rem 1.2rem; border: none; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: 0.2s; text-decoration: none; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-primary:hover:not(:disabled) { background-color: var(--primary-hover); }
+        .btn-secondary { background-color: #334155; color: white; }
+        .btn-secondary:hover { background-color: #475569; }
+        .btn-success { background-color: #10b981; color: white; }
+        .btn-success:hover { background-color: #059669; }
+        .btn-danger { background-color: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
+        .btn-danger:hover { background-color: var(--danger); color: white; }
+        .btn-sm { padding: 0.4rem 0.75rem; font-size: 0.82rem; }
+
+        /* Progress Bar */
+        .progress-wrap { background: var(--bg-dark); border-radius: 20px; height: 12px; width: 100%; overflow: hidden; border: 1px solid var(--border); margin-top: 8px; }
+        .progress-fill { background: linear-gradient(90deg, var(--primary), var(--accent)); height: 100%; transition: width 0.3s ease; }
+
+        /* Colour Pills */
+        .colour-pills { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.5rem; }
+        .colour-pill { background: var(--bg-dark); border: 1px solid var(--border); padding: 6px 12px; border-radius: 8px; font-size: 0.85rem; }
+
+        /* Tables */
+        .table-responsive { width: 100%; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.92rem; }
+        th, td { padding: 0.8rem 0.9rem; border-bottom: 1px solid var(--border); }
+        th { background-color: rgba(51, 65, 85, 0.4); color: var(--text-muted); font-weight: 600; }
+        tr:hover { background-color: rgba(56, 189, 248, 0.03); }
+
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; }
+        .badge-batch { background: rgba(56, 189, 248, 0.15); color: var(--accent); }
+        .badge-exported { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+        .badge-pending { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+
+        /* Modal */
+        .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 2000; align-items: center; justify-content: center; padding: 1rem; }
+        .modal-backdrop.active { display: flex; }
+        .modal-box { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; width: 100%; max-width: 500px; }
+
+        .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); z-index: 999; }
+        @media (max-width: 768px) {
+            .sidebar { position: fixed; top: 0; bottom: 0; left: 0; transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .sidebar-overlay.active { display: block; }
+            .menu-toggle, .close-btn { display: block; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-box">
+                    <i class="fa-solid fa-industry"></i>
+                    <div>
+                        <h2>AVKG MANAGER</h2>
+                        <span>AVKG WORLD</span>
+                    </div>
+                </div>
+                <button class="close-btn" onclick="toggleSidebar()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <nav class="nav-menu">
+                <button class="nav-item active" onclick="showPage('dashboard', this)">
+                    <i class="fa-solid fa-chart-pie"></i> Dashboard
+                </button>
+                <button class="nav-item" onclick="showPage('new-entry', this)">
+                    <i class="fa-solid fa-plus-circle"></i> New Stock Entry
+                </button>
+                <button class="nav-item" onclick="showPage('all-parties', this)">
+                    <i class="fa-solid fa-users"></i> All Parties
+                </button>
+                <button class="nav-item" onclick="showPage('add-party', this)">
+                    <i class="fa-solid fa-user-plus"></i> Add New Party
+                </button>
+                <button class="nav-item" onclick="showPage('party-history', this)">
+                    <i class="fa-solid fa-clock-rotate-left"></i> Party History
+                </button>
+                <button class="nav-item" onclick="showPage('excel-downloads', this)">
+                    <i class="fa-solid fa-file-excel"></i> Excel Downloads
+                </button>
+                <button class="nav-item" onclick="showPage('reports', this)">
+                    <i class="fa-solid fa-chart-column"></i> Reports & Manual Export
+                </button>
+                <button class="nav-item" onclick="showPage('settings', this)">
+                    <i class="fa-solid fa-gear"></i> Settings & Backup
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">Made by <strong>AVKG WORLD</strong></div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="topbar">
+                <button class="menu-toggle" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
+                <h1 id="pageTitle">Dashboard</h1>
+                <div class="server-badge"><span class="dot"></span> Live System</div>
+            </header>
+
+            <div class="content-body">
+                <!-- 1. DASHBOARD -->
+                <section id="page-dashboard" class="page-section active">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon blue"><i class="fa-solid fa-users"></i></div>
+                            <div><p>Total Parties</p><h3 id="stat-parties">0</h3></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon green"><i class="fa-solid fa-boxes-stacked"></i></div>
+                            <div><p>Total Pieces</p><h3 id="stat-pieces">0</h3></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon purple"><i class="fa-solid fa-list-check"></i></div>
+                            <div><p>Total Entries</p><h3 id="stat-entries">0</h3></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon orange"><i class="fa-solid fa-file-excel"></i></div>
+                            <div><p>Excel Batches Ready</p><h3 id="stat-batches">0</h3></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>Quick Actions</h3>
+                        <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem;">
+                            <button class="btn btn-primary" onclick="navigateTo('new-entry')"><i class="fa-solid fa-plus"></i> Add New Stock Entry</button>
+                            <button class="btn btn-secondary" onclick="navigateTo('reports')"><i class="fa-solid fa-download"></i> Manual Excel Export</button>
+                            <button class="btn btn-secondary" onclick="navigateTo('settings')"><i class="fa-solid fa-database"></i> Backup Database</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 2. NEW STOCK ENTRY -->
+                <section id="page-new-entry" class="page-section">
+                    <div class="card" style="max-width: 800px;">
+                        <h3>New Stock Entry (10-Entry Auto Batch System)</h3>
+                        <p class="muted" style="margin-bottom: 1.2rem;">Jaise hi kisi party ki 10 entries poori hongi, OpenPyXL professional Excel file automatically generate ho jayegi!</p>
+                        
+                        <form id="stockEntryForm" onsubmit="handleStockEntry(event)">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Select Party</label>
+                                    <select id="entryPartySelect" class="form-control" required>
+                                        <option value="">-- Choose Party --</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Entry Date</label>
+                                    <input type="date" id="entryDateInput" class="form-control" required>
+                                </div>
+                            </div>
+
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Lot Number</label>
+                                    <input type="text" id="entryLotInput" class="form-control" placeholder="e.g. Lot 001" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Size</label>
+                                    <select id="entrySizeSelect" class="form-control" required>
+                                        <option value="Chhote">Chhote</option>
+                                        <option value="Bade">Bade</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Colour</label>
+                                    <select id="entryColourSelect" class="form-control" onchange="checkCustomColour(this)" required>
+                                        <option value="Black">Black</option>
+                                        <option value="White">White</option>
+                                        <option value="Red">Red</option>
+                                        <option value="Blue">Blue</option>
+                                        <option value="Custom">Other Custom Colour...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" id="customColourGroup" style="display: none;">
+                                    <label>Custom Colour Name</label>
+                                    <input type="text" id="entryCustomColourInput" class="form-control" placeholder="Enter colour name">
+                                </div>
+                                <div class="form-group">
+                                    <label>Quantity (Number of Pieces)</label>
+                                    <input type="number" id="entryQtyInput" class="form-control" placeholder="e.g. 500" min="1" required>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Remarks (Optional)</label>
+                                <input type="text" id="entryRemarksInput" class="form-control" placeholder="Any special notes">
+                            </div>
+
+                            <button type="submit" id="saveEntryBtn" class="btn btn-primary" style="margin-top: 0.5rem;"><i class="fa-solid fa-save"></i> Save Entry</button>
+                        </form>
+                    </div>
+                </section>
+
+                <!-- 3. ALL PARTIES -->
+                <section id="page-all-parties" class="page-section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>All Registered Parties</h3>
+                            <input type="text" id="partySearchInput" class="form-control" style="max-width: 280px;" placeholder="Search party name..." oninput="filterPartiesTable()">
+                        </div>
+                        <div class="table-responsive">
+                            <table>
+                               <thead>
+                                   <tr>
+                                       <th>S.No.</th>
+                                       <th>Party Name</th>
+                                       <th>Total Entries</th>
+                                       <th>Total Pieces</th>
+                                       <th>Current Batch</th>
+                                       <th>Actions</th>
+                                   </tr>
+                               </thead>
+                               <tbody id="partiesTableBody">
+                                   <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Loading parties...</td></tr>
+                               </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 4. ADD NEW PARTY -->
+                <section id="page-add-party" class="page-section">
+                    <div class="card" style="max-width: 600px;">
+                        <h3>Register New Party</h3>
+                        <p class="muted" style="margin-bottom: 1.5rem;">Nayi party ka naam enter karein jo database mein permanently save hogi.</p>
+                        <form id="addPartyForm" onsubmit="handleRegisterParty(event)">
+                            <div class="form-group">
+                                <label>Party Name</label>
+                                <input type="text" id="partyNameInput" class="form-control" placeholder="e.g. ABC Traders" required>
+                            </div>
+                            <button type="submit" id="savePartyBtn" class="btn btn-primary"><i class="fa-solid fa-check"></i> Save Party</button>
+                        </form>
+                    </div>
+                </section>
+
+                <!-- 5. PARTY HISTORY -->
+                <section id="page-party-history" class="page-section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Party Dashboard & Stock History</h3>
+                            <select id="historyPartySelect" class="form-control" style="max-width: 300px;" onchange="loadPartyDashboard(this.value)">
+                                <option value="">-- Select Party to View --</option>
+                            </select>
+                        </div>
+
+                        <div id="partyDashboardContainer" style="display: none;">
+                            <div class="stats-grid" style="margin-top: 1rem;">
+                                <div class="stat-card">
+                                    <div class="stat-icon blue"><i class="fa-solid fa-list"></i></div>
+                                    <div><p>Total Entries</p><h3 id="pd-entries">0</h3></div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-icon green"><i class="fa-solid fa-cubes"></i></div>
+                                    <div><p>Total Pieces</p><h3 id="pd-pieces">0</h3></div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-icon purple"><i class="fa-solid fa-compress"></i></div>
+                                    <div><p>Chhote Pieces</p><h3 id="pd-chhote">0</h3></div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-icon orange"><i class="fa-solid fa-expand"></i></div>
+                                    <div><p>Bade Pieces</p><h3 id="pd-bade">0</h3></div>
+                                </div>
+                            </div>
+
+                            <div class="form-grid" style="margin-bottom: 1.5rem;">
+                                <div style="background: var(--bg-dark); padding: 1rem; border-radius: 10px; border: 1px solid var(--border);">
+                                    <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                                        <span>Current Batch Progress</span>
+                                        <strong id="pd-batch-text" style="color: var(--accent);">0/10</strong>
+                                    </div>
+                                    <div class="progress-wrap">
+                                        <div class="progress-fill" id="pd-batch-bar" style="width: 0%;"></div>
+                                    </div>
+                                    <p id="pd-batch-alert" class="muted" style="font-size: 0.82rem; margin-top: 8px;"></p>
+                                </div>
+                                <div style="background: var(--bg-dark); padding: 1rem; border-radius: 10px; border: 1px solid var(--border);">
+                                    <span style="font-size: 0.9rem; color: var(--text-muted);">Colour-Wise Totals (Pieces):</span>
+                                    <div class="colour-pills" id="pd-colours"></div>
+                                </div>
+                            </div>
+
+                            <div class="form-grid" style="background: rgba(15,23,42,0.5); padding: 1rem; border-radius: 10px; margin-bottom: 1rem;">
+                                <div class="form-group" style="margin:0;"><label>From Date</label><input type="date" id="filterFromDate" class="form-control" onchange="applyHistoryFilters()"></div>
+                                <div class="form-group" style="margin:0;"><label>To Date</label><input type="date" id="filterToDate" class="form-control" onchange="applyHistoryFilters()"></div>
+                                <div class="form-group" style="margin:0;"><label>Lot Number</label><input type="text" id="filterLot" class="form-control" placeholder="Search Lot..." oninput="applyHistoryFilters()"></div>
+                                <div class="form-group" style="margin:0;"><label>Size</label><select id="filterSize" class="form-control" onchange="applyHistoryFilters()"><option value="">All Sizes</option><option value="Chhote">Chhote</option><option value="Bade">Bade</option></select></div>
+                                <div class="form-group" style="margin:0;"><label>Colour</label><input type="text" id="filterColour" class="form-control" placeholder="Search Colour..." oninput="applyHistoryFilters()"></div>
+                            </div>
+
+                            <div class="table-responsive">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Lot No.</th>
+                                            <th>Size</th>
+                                            <th>Colour</th>
+                                            <th>Quantity</th>
+                                            <th>Remarks</th>
+                                            <th>Batch</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="partyHistoryTableBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 6. EXCEL DOWNLOADS -->
+                <section id="page-excel-downloads" class="page-section">
+                    <div class="card">
+                        <h3>Generated 10-Entry Excel Batches</h3>
+                        <p class="muted" style="margin-bottom: 1.5rem;">Jab bhi kisi party ki 10 entries poori hoti hain, OpenPyXL automatic professional Excel generate karta hai.</p>
+                        
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>S.No.</th>
+                                        <th>Party Name</th>
+                                        <th>Batch Number</th>
+                                        <th>Total Entries</th>
+                                        <th>Total Pieces</th>
+                                        <th>Generated Date</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="excelBatchesTableBody">
+                                    <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Loading Excel batches...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 7. REPORTS & MANUAL EXPORT -->
+                <section id="page-reports" class="page-section">
+                    <div class="card" style="max-width: 650px;">
+                        <h3>Manual Party Excel Export</h3>
+                        <p class="muted" style="margin-bottom: 1.5rem;">Kisi bhi party ke saare entries ka complete Excel report kisi bhi waqt download karein, chahe 10 entries poori hui hon ya nahi.</p>
+                        
+                        <div class="form-group">
+                            <label>Select Party for Manual Export</label>
+                            <select id="manualExportPartySelect" class="form-control">
+                                <option value="">-- Choose Party --</option>
+                            </select>
+                        </div>
+                        <button type="button" class="btn btn-success" style="margin-top: 1rem;" onclick="triggerManualExport()">
+                            <i class="fa-solid fa-file-excel"></i> Download Manual Excel Report
+                        </button>
+                    </div>
+                </section>
+
+                <!-- 8. SETTINGS & BACKUP -->
+                <section id="page-settings" class="page-section">
+                    <div class="card" style="max-width: 650px; margin-bottom: 1.5rem;">
+                        <h3>Database Backup & Recovery</h3>
+                        <p class="muted" style="margin-bottom: 1.5rem;">Apne poore factory database (`avkg_factory.db`) ka secure backup download karein.</p>
+                        <a href="/api/backup-database" class="btn btn-primary" target="_blank">
+                            <i class="fa-solid fa-download"></i> Download Database Backup (.db)
+                        </a>
+                    </div>
+
+                    <div class="card" style="max-width: 650px;">
+                        <h3>Multi-Device Mobile Sync IP</h3>
+                        <p class="muted" style="margin-bottom: 1rem;">Apne Android phone ko laptop ke Wi-Fi hotspot se connect karke niche diye gaye URL par kholen:</p>
+                        <div style="background: var(--bg-dark); padding: 1rem; border-radius: 8px; border: 1px solid var(--border);">
+                            <code id="syncIpDisplay" style="font-size: 1.1rem; color: var(--accent);">Loading Server IP...</code>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Edit Modal -->
+    <div class="modal-backdrop" id="editEntryModal">
+        <div class="modal-box">
+            <h3 style="margin-bottom: 1rem;">Edit Stock Entry</h3>
+            <form onsubmit="submitEditEntry(event)">
+                <input type="hidden" id="editEntryId">
+                <div class="form-group"><label>Date</label><input type="date" id="editDate" class="form-control" required></div>
+                <div class="form-group"><label>Lot Number</label><input type="text" id="editLot" class="form-control" required></div>
+                <div class="form-grid">
+                    <div class="form-group"><label>Size</label><select id="editSize" class="form-control" required><option value="Chhote">Chhote</option><option value="Bade">Bade</option></select></div>
+                    <div class="form-group"><label>Colour</label><input type="text" id="editColour" class="form-control" required></div>
+                </div>
+                <div class="form-group"><label>Quantity (Pieces)</label><input type="number" id="editQty" class="form-control" min="1" required></div>
+                <div class="form-group"><label>Remarks</label><input type="text" id="editRemarks" class="form-control"></div>
+                <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let allPartiesCache = [];
+        let currentPartyEntries = [];
+        let currentSelectedPartyId = null;
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebarOverlay').classList.toggle('active');
+        }
+
+        function showPage(pageId, buttonElement) {
+            document.querySelectorAll('.page-section').forEach(sec => sec.classList.remove('active'));
+            document.getElementById('page-' + pageId).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
+            if (buttonElement) {
+                buttonElement.classList.add('active');
+                document.getElementById('pageTitle').innerText = buttonElement.innerText.trim();
+            }
+            if (window.innerWidth <= 768) {
+                document.getElementById('sidebar').classList.remove('open');
+                document.getElementById('sidebarOverlay').classList.remove('active');
+            }
+            if (pageId === 'all-parties') loadParties();
+            if (pageId === 'dashboard') loadDashboardStats();
+            if (pageId === 'new-entry') { loadPartiesDropdown('entryPartySelect'); setDefaultDate(); }
+            if (pageId === 'party-history') loadPartiesDropdown('historyPartySelect', currentSelectedPartyId);
+            if (pageId === 'excel-downloads') loadExcelBatches();
+            if (pageId === 'reports') loadPartiesDropdown('manualExportPartySelect');
+            if (pageId === 'settings') loadServerIpInfo();
+        }
+
+        function navigateTo(pageId) {
+            document.querySelectorAll('.nav-item').forEach(btn => {
+                if (btn.getAttribute('onclick').includes(`'${pageId}'`)) {
+                    showPage(pageId, btn);
+                }
+            });
+        }
+
+        function setDefaultDate() {
+            document.getElementById('entryDateInput').value = new Date().toISOString().split('T')[0];
+        }
+
+        function checkCustomColour(selectObj) {
+            const customGroup = document.getElementById('customColourGroup');
+            const customInput = document.getElementById('entryCustomColourInput');
+            if (selectObj.value === 'Custom') {
+                customGroup.style.display = 'block';
+                customInput.required = true;
+            } else {
+                customGroup.style.display = 'none';
+                customInput.required = false;
+                customInput.value = '';
+            }
+        }
+
+        async function loadDashboardStats() {
+            try {
+                const res = await fetch('/api/parties');
+                const parties = await res.json();
+                const batchesRes = await fetch('/api/excel-batches');
+                const batches = await batchesRes.json();
+
+                document.getElementById('stat-parties').innerText = parties.length;
+                document.getElementById('stat-pieces').innerText = parties.reduce((sum, p) => sum + p.total_pieces, 0);
+                document.getElementById('stat-entries').innerText = parties.reduce((sum, p) => sum + p.total_entries, 0);
+                document.getElementById('stat-batches').innerText = batches.length;
+            } catch (err) { console.error(err); }
+        }
+
+        async function handleRegisterParty(event) {
+            event.preventDefault();
+            const btn = document.getElementById('savePartyBtn');
+            const partyName = document.getElementById('partyNameInput').value.trim();
+            if (!partyName) return;
+
+            btn.disabled = true;
+            try {
+                const response = await fetch('/api/parties', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: partyName })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    alert(result.message);
+                    document.getElementById('partyNameInput').value = '';
+                    navigateTo('all-parties');
+                } else { alert("Error: " + (result.detail || "Party register nahi ho payi!")); }
+            } catch (err) { alert("Server connection error!"); }
+            finally { btn.disabled = false; }
+        }
+
+        async function loadPartiesDropdown(selectId, preselectId = null) {
+            try {
+                const res = await fetch('/api/parties');
+                const parties = await res.json();
+                const select = document.getElementById(selectId);
+                select.innerHTML = '<option value="">-- Choose Party --</option>';
+                parties.forEach(p => {
+                    const selected = (preselectId && parseInt(preselectId) === p.id) ? 'selected' : '';
+                    select.innerHTML += `<option value="${p.id}" ${selected}>${p.name} (Batch Progress: ${p.batch_progress})</option>`;
+                });
+            } catch (err) { console.error(err); }
+        }
+
+        async function handleStockEntry(event) {
+            event.preventDefault();
+            const btn = document.getElementById('saveEntryBtn');
+            const partyId = document.getElementById('entryPartySelect').value;
+            const entryDate = document.getElementById('entryDateInput').value;
+            const lotNumber = document.getElementById('entryLotInput').value;
+            const size = document.getElementById('entrySizeSelect').value;
+            let colour = document.getElementById('entryColourSelect').value;
+            if (colour === 'Custom') colour = document.getElementById('entryCustomColourInput').value.trim();
+            const quantity = parseInt(document.getElementById('entryQtyInput').value);
+            const remarks = document.getElementById('entryRemarksInput').value;
+
+            btn.disabled = true;
+            try {
+                const response = await fetch('/api/stock-entries', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ party_id: parseInt(partyId), entry_date: entryDate, lot_number: lotNumber, size: size, colour: colour, quantity: quantity, remarks: remarks })
+                });
+                const result = await response.json();
+
+                if (response.ok) {
+                    let msg = `${result.message}\nCurrent Batch Progress: ${result.batch_progress}`;
+                    if (result.batch_ready) {
+                        msg += `\n\n🎉 10 ENTRIES COMPLETE!\nBatch #${result.batch_number} ki professional Excel file automatically generate ho chuki hai!`;
+                    }
+                    alert(msg);
+                    document.getElementById('entryLotInput').value = '';
+                    document.getElementById('entryQtyInput').value = '';
+                    document.getElementById('entryRemarksInput').value = '';
+                    document.getElementById('entryColourSelect').value = 'Black';
+                    document.getElementById('customColourGroup').style.display = 'none';
+                    loadPartiesDropdown('entryPartySelect', partyId);
+                } else { alert(result.detail || "Entry save karne mein error aaya!"); }
+            } catch (err) { alert("Server connection error!"); }
+            finally { btn.disabled = false; }
+        }
+
+        async function loadParties() {
+            try {
+                const res = await fetch('/api/parties');
+                allPartiesCache = await res.json();
+                renderPartiesTable(allPartiesCache);
+            } catch (err) { console.error(err); }
+        }
+
+        function filterPartiesTable() {
+            const q = document.getElementById('partySearchInput').value.toLowerCase();
+            const filtered = allPartiesCache.filter(p => p.name.toLowerCase().includes(q));
+            renderPartiesTable(filtered);
+        }
+
+        function renderPartiesTable(parties) {
+            const tbody = document.getElementById('partiesTableBody');
+            tbody.innerHTML = '';
+            if (parties.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Koi party nahi mili.</td></tr>`;
+                return;
+            }
+            parties.forEach((p, index) => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td><strong>${p.name}</strong></td>
+                        <td>${p.total_entries}</td>
+                        <td>${p.total_pieces}</td>
+                        <td><span class="badge badge-batch">${p.batch_progress}</span></td>
+                        <td style="display:flex; gap:6px; flex-wrap:wrap;">
+                            <button class="btn btn-primary btn-sm" onclick="openPartyDashboard(${p.id})"><i class="fa-solid fa-chart-line"></i> Dashboard</button>
+                            <button class="btn btn-secondary btn-sm" onclick="editPartyName(${p.id}, '${p.name.replace(/'/g, "\\'")}')"><i class="fa-solid fa-pen"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function editPartyName(partyId, oldName) {
+            const newName = prompt("Party ka naya naam enter karein:", oldName);
+            if (!newName || newName.trim() === oldName) return;
+            try {
+                const res = await fetch(`/api/parties/${partyId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName.trim() })
+                });
+                const data = await res.json();
+                if (res.ok) { alert(data.message); loadParties(); } else { alert(data.detail); }
+            } catch (err) { alert("Update karne mein error aaya!"); }
+        }
+
+        function openPartyDashboard(partyId) {
+            currentSelectedPartyId = partyId;
+            navigateTo('party-history');
+            loadPartyDashboard(partyId);
+        }
+
+        async function loadPartyDashboard(partyId) {
+            const container = document.getElementById('partyDashboardContainer');
+            if (!partyId) { container.style.display = 'none'; return; }
+            currentSelectedPartyId = partyId;
+            try {
+                const res = await fetch(`/api/parties/${partyId}/dashboard`);
+                const data = await res.json();
+                if (!res.ok) return alert(data.detail);
+
+                container.style.display = 'block';
+                document.getElementById('pd-entries').innerText = data.stats.total_entries;
+                document.getElementById('pd-pieces').innerText = data.stats.total_pieces;
+                document.getElementById('pd-chhote').innerText = data.stats.chhote_pieces;
+                document.getElementById('pd-bade').innerText = data.stats.bade_pieces;
+
+                const count = data.stats.unexported_count;
+                document.getElementById('pd-batch-text').innerText = `${count}/10`;
+                document.getElementById('pd-batch-bar').style.width = `${(count / 10) * 100}%`;
+                document.getElementById('pd-batch-alert').innerText = count === 10
+                    ? "10/10 Entries complete! Excel file automatically generate ho chuki hai."
+                    : `${10 - count} more entries needed to complete this batch.`;
+
+                const colourDiv = document.getElementById('pd-colours');
+                colourDiv.innerHTML = '';
+                const colours = Object.entries(data.stats.colour_totals);
+                if (colours.length === 0) { colourDiv.innerHTML = '<span class="muted">No entries yet</span>'; }
+                else { colours.forEach(([col, qty]) => { colourDiv.innerHTML += `<span class="colour-pill"><strong>${col}:</strong> ${qty} pcs</span>`; }); }
+
+                currentPartyEntries = data.entries;
+                renderHistoryTable(currentPartyEntries);
+            } catch (err) { console.error(err); }
+        }
+
+        function applyHistoryFilters() {
+            const fromDate = document.getElementById('filterFromDate').value;
+            const toDate = document.getElementById('filterToDate').value;
+            const lot = document.getElementById('filterLot').value.toLowerCase();
+            const size = document.getElementById('filterSize').value;
+            const colour = document.getElementById('filterColour').value.toLowerCase();
+
+            const filtered = currentPartyEntries.filter(e => {
+                if (fromDate && e.entry_date < fromDate) return false;
+                if (toDate && e.entry_date > toDate) return false;
+                if (lot && !e.lot_number.toLowerCase().includes(lot)) return false;
+                if (size && e.size !== size) return false;
+                if (colour && !e.colour.toLowerCase().includes(colour)) return false;
+                return true;
+            });
+            renderHistoryTable(filtered);
+        }
+
+        function renderHistoryTable(entries) {
+            const tbody = document.getElementById('partyHistoryTableBody');
+            tbody.innerHTML = '';
+            if (entries.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-muted);">Koi stock entry nahi mili.</td></tr>`;
+                return;
+            }
+            entries.forEach(e => {
+                const statusBadge = e.is_exported === 1
+                    ? `<span class="badge badge-exported">Batch #${e.batch_number} (Exported)</span>`
+                    : `<span class="badge badge-pending">Batch #${e.batch_number} (Active)</span>`;
+
+                const actionBtns = e.is_exported === 0
+                    ? `<button class="btn btn-secondary btn-sm" onclick='openEditModal(${JSON.stringify(e)})'><i class="fa-solid fa-pen"></i></button>
+                       <button class="btn btn-danger btn-sm" onclick="deleteEntry(${e.id})"><i class="fa-solid fa-trash"></i></button>`
+                    : `<span class="muted" style="font-size:0.8rem;">Locked</span>`;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${e.entry_date}</td>
+                        <td><strong>${e.lot_number}</strong></td>
+                        <td>${e.size}</td>
+                        <td>${e.colour}</td>
+                        <td><strong>${e.quantity}</strong></td>
+                        <td>${e.remarks || '-'}</td>
+                        <td>${statusBadge}</td>
+                        <td style="display:flex; gap:5px;">${actionBtns}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function loadExcelBatches() {
+            try {
+                const res = await fetch('/api/excel-batches');
+                const batches = await res.json();
+                const tbody = document.getElementById('excelBatchesTableBody');
+                tbody.innerHTML = '';
+
+                if (batches.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Abhi tak koi Excel batch generate nahi hua hai.</td></tr>`;
+                    return;
+                }
+
+                batches.forEach((b, index) => {
+                    const dateStr = new Date(b.created_at).toLocaleDateString();
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td><strong>${b.party_name}</strong></td>
+                            <td><span class="badge badge-batch">BATCH #${String(b.batch_number).padStart(3, '0')}</span></td>
+                            <td>${b.total_entries} Entries</td>
+                            <td><strong>${b.total_pieces} pcs</strong></td>
+                            <td>${dateStr}</td>
+                            <td><a href="/api/download-excel/${b.id}" class="btn btn-success btn-sm" target="_blank"><i class="fa-solid fa-download"></i> Download</a></td>
+                        </tr>
+                    `;
+                });
+            } catch (err) { console.error(err); }
+        }
+
+        function triggerManualExport() {
+            const partyId = document.getElementById('manualExportPartySelect').value;
+            if (!partyId) { alert("Pehle koi party select karein!"); return; }
+            window.open(`/api/parties/${partyId}/manual-export`, '_blank');
+        }
+
+        async function loadServerIpInfo() {
+            try {
+                const res = await fetch('/api/health');
+                const data = await res.json();
+                document.getElementById('syncIpDisplay').innerText = data.server_ip;
+            } catch (err) { document.getElementById('syncIpDisplay').innerText = "http://localhost:8000"; }
+        }
+
+        function openEditModal(entry) {
+            document.getElementById('editEntryId').value = entry.id;
+            document.getElementById('editDate').value = entry.entry_date;
+            document.getElementById('editLot').value = entry.lot_number;
+            document.getElementById('editSize').value = entry.size;
+            document.getElementById('editColour').value = entry.colour;
+            document.getElementById('editQty').value = entry.quantity;
+            document.getElementById('editRemarks').value = entry.remarks || '';
+            document.getElementById('editEntryModal').classList.add('active');
+        }
+
+        function closeEditModal() { document.getElementById('editEntryModal').classList.remove('active'); }
+
+        async function submitEditEntry(event) {
+            event.preventDefault();
+            const id = document.getElementById('editEntryId').value;
+            const payload = {
+                entry_date: document.getElementById('editDate').value,
+                lot_number: document.getElementById('editLot').value,
+                size: document.getElementById('editSize').value,
+                colour: document.getElementById('editColour').value,
+                quantity: parseInt(document.getElementById('editQty').value),
+                remarks: document.getElementById('editRemarks').value
+            };
+            try {
+                const res = await fetch(`/api/stock-entries/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (res.ok) { alert(data.message); closeEditModal(); loadPartyDashboard(currentSelectedPartyId); }
+                else { alert(data.detail); }
+            } catch (err) { alert("Edit karne mein error aaya!"); }
+        }
+
+        async function deleteEntry(id) {
+            if (!confirm("Kya aap sach mein is entry ko delete karna chahte hain?")) return;
+            try {
+                const res = await fetch(`/api/stock-entries/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (res.ok) { alert(data.message); loadPartyDashboard(currentSelectedPartyId); }
+                else { alert(data.detail); }
+            } catch (err) { alert("Delete karne mein error aaya!"); }
+        }
+
+        window.onload = function() { loadDashboardStats(); }
+    </script>
+</body>
+</html>
