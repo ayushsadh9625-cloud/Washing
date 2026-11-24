@@ -16,7 +16,17 @@ def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Parties Table (Har user ki apni parties)
+    # Check if old parties table exists without username column
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='parties'")
+    if cursor.fetchone():
+        cursor.execute("PRAGMA table_info(parties)")
+        columns = [col[1] for col in cursor.fetchall()]
+        if "username" not in columns:
+            cursor.execute("DROP TABLE IF EXISTS excel_batches")
+            cursor.execute("DROP TABLE IF EXISTS stock_entries")
+            cursor.execute("DROP TABLE IF EXISTS parties")
+
+    # Parties Table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS parties (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
