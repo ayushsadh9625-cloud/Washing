@@ -16,7 +16,8 @@ app = FastAPI(title="AVKG FACTORY MANAGER")
 
 MASTER_PASSWORD = "Sadh ji"
 
-@app.on_event("startup")
+# Purana @app.on_event("startup") hata kar seedha yeh likho:
+init_db()
 def startup_event():
     init_db()
 

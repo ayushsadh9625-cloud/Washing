@@ -636,14 +636,22 @@
                     headers: authHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify({ name: partyName })
                 });
-                const result = await response.json();
+                const text = await response.text();
+                let result;
+                try { result = JSON.parse(text); } catch { result = { detail: text }; }
+                
                 if (response.ok) {
                     alert(result.message);
                     document.getElementById('partyNameInput').value = '';
                     navigateTo('all-parties');
-                } else { alert("Error: " + (result.detail || "Party register nahi ho payi!")); }
-            } catch (err) { alert("Server connection error!"); }
-            finally { btn.disabled = false; }
+                } else {
+                    alert("Server Error (" + response.status + "): " + (result.detail || "Party register nahi ho payi!"));
+                }
+            } catch (err) {
+                alert("Network Error: " + err.message);
+            } finally {
+                btn.disabled = false;
+            }
         }
 
         async function loadPartiesDropdown(selectId, preselectId = null) {
